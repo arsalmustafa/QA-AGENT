@@ -1,6 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from ingestion.file_handler import UnsupportedFileTypeError
+from ingestion.service import upload_and_process
 from llm_service import llm_service
 from retriever import build_context
 
@@ -15,6 +17,16 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: list[str] = []
+
+
+class UploadResponse(BaseModel):
+    message: str
+    filename: str
+    path: str
+    saved: bool
+    pinecone: bool
+    chunks: int
+    chars: int
 
 
 @app.get("/")
@@ -37,4 +49,40 @@ def ask(body: AskRequest):
         raise HTTPException(
             status_code=502,
             detail=f"LLM request failed: {exc}",
+        ) from exc
+
+
+@app.post("/documents", response_model=UploadResponse)
+async def upload_document(file: UploadFile = File(...)):
+    """
+    Upload a new file:
+    1) Always save into storage/
+    2) Extract text and store embeddings in Pinecone (if configured)
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
+
+    try:
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+        result = upload_and_process(file.filename, content)
+        return UploadResponse(
+            message=result.get("message", "OK"),
+            filename=result["filename"],
+            path=result["path"],
+            saved=result.get("saved", True),
+            pinecone=result.get("pinecone", False),
+            chunks=result.get("chunks", 0),
+            chars=result.get("chars", 0),
+        )
+    except UnsupportedFileTypeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Upload/ingestion failed: {exc}",
         ) from exc

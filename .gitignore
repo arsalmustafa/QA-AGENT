@@ -2,3 +2,9 @@
 __pycache__/
 *.pyc
 .env
+.env.example
+.vscode/launch.json
+.vscode/settings.json
+storage/*
+!storage/.gitkeep
+uploads/
