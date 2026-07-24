@@ -1,0 +1,28 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "QA Agent API",
+      "type": "python",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app:app", "--host", "127.0.0.1", "--port", "8000"],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "jinja": true,
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Re-ingest storage",
+      "type": "python",
+      "request": "launch",
+      "module": "ingestion",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    }
+  ]
+}
