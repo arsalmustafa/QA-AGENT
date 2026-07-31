@@ -51,7 +51,7 @@ def _split_by_size(text: str, max_chars: int) -> list[str]:
     for para in paragraphs:
         para = para.strip()
         if not para:
-            continue
+            continue        
         if not current:
             current = para
         elif len(current) + 2 + len(para) <= max_chars:

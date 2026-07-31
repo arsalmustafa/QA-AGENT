@@ -6,3 +6,5 @@ pinecone>=5.0.0
 python-multipart>=0.0.9
 pypdf>=5.0.0
 rank-bm25>=0.2.2
+PyJWT>=2.8.0
+PyGithub>=2.3.0
