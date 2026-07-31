@@ -35,7 +35,22 @@ def process_stored_file(path: Path) -> dict:
         raise ValueError(f"No text could be extracted from {path.name}")
 
     chunks = chunk_text(text, source=path.name)
-    count = upsert_chunks(chunks)
+    enriched = [
+        {
+            **c,
+            "project": "",
+            "project_name": "",
+            "owner": "",
+            "repo": "",
+            "path": path.name,
+            "type": "doc",
+            "language": "text",
+            "symbol": "",
+            "kind": "file",
+        }
+        for c in chunks
+    ]
+    count = upsert_chunks(enriched)
 
     return {
         "filename": path.name,

@@ -14,7 +14,6 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 ROOT_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = ROOT_DIR / "storage"
 
-# Fetch more candidates from Pinecone, then rerank down
 RETRIEVE_TOP_K = int(os.getenv("RETRIEVE_TOP_K", "10"))
 RERANK_TOP_N = int(os.getenv("RERANK_TOP_N", "3"))
 
@@ -52,20 +51,30 @@ def _load_chunks() -> list[dict]:
                     "source": path.name,
                     "text": part,
                     "tokens": _tokenize(part),
+                    "project": "",
+                    "project_name": "",
                 }
             )
 
     return chunks
 
 
-def retrieve_keyword(question: str, top_k: int = RETRIEVE_TOP_K, min_score: int = 1) -> list[dict]:
+def retrieve_keyword(
+    question: str,
+    top_k: int = RETRIEVE_TOP_K,
+    min_score: int = 1,
+    project: str | None = None,
+) -> list[dict]:
     """Fallback: simple keyword retrieval over storage/."""
     question_tokens = _tokenize(question)
     if not question_tokens:
         return []
 
+    project_key = (project or "").strip().lower()
     scored: list[dict] = []
     for chunk in _load_chunks():
+        if project_key and project_key not in chunk["source"].lower():
+            continue
         overlap = question_tokens & chunk["tokens"]
         score = len(overlap)
         if score >= min_score:
@@ -74,6 +83,8 @@ def retrieve_keyword(question: str, top_k: int = RETRIEVE_TOP_K, min_score: int 
                     "source": chunk["source"],
                     "text": chunk["text"],
                     "score": float(score),
+                    "project": chunk.get("project") or "",
+                    "project_name": chunk.get("project_name") or "",
                 }
             )
 
@@ -81,11 +92,24 @@ def retrieve_keyword(question: str, top_k: int = RETRIEVE_TOP_K, min_score: int 
     return scored[:top_k]
 
 
-def retrieve_pinecone(question: str, top_k: int = RETRIEVE_TOP_K) -> list[dict]:
-    """Semantic retrieval using embeddings + Pinecone."""
+def retrieve_pinecone(
+    question: str,
+    top_k: int = RETRIEVE_TOP_K,
+    project: str | None = None,
+) -> list[dict]:
+    """Semantic retrieval using embeddings + Pinecone (optional project filter)."""
     vector = embed_text(question)
     index = get_index()
-    result = index.query(vector=vector, top_k=top_k, include_metadata=True)
+
+    query_kwargs: dict = {
+        "vector": vector,
+        "top_k": top_k,
+        "include_metadata": True,
+    }
+    if project and project.strip():
+        query_kwargs["filter"] = {"project": {"$eq": project.strip()}}
+
+    result = index.query(**query_kwargs)
 
     matches = getattr(result, "matches", None)
     if matches is None and isinstance(result, dict):
@@ -112,37 +136,60 @@ def retrieve_pinecone(question: str, top_k: int = RETRIEVE_TOP_K) -> list[dict]:
                 "source": source,
                 "text": text,
                 "score": float(score or 0.0),
+                "project": metadata.get("project") or "",
+                "project_name": metadata.get("project_name") or "",
+                "path": metadata.get("path") or "",
+                "symbol": metadata.get("symbol") or "",
             }
         )
     return hits
 
 
-def retrieve(question: str, top_k: int = RETRIEVE_TOP_K) -> list[dict]:
-    """
-    Retrieve candidates (default top 10), then rerank to best N.
-    """
+def retrieve(
+    question: str,
+    top_k: int = RETRIEVE_TOP_K,
+    project: str | None = None,
+) -> list[dict]:
+    """Retrieve candidates (default top 10), then rerank to best N."""
     if is_pinecone_configured():
-        hits = retrieve_pinecone(question, top_k=top_k)
+        hits = retrieve_pinecone(question, top_k=top_k, project=project)
     else:
         print(
             "PINECONE_API_KEY not set — using keyword fallback on storage/. "
             "Add your key to .env, then upload files via POST /documents"
         )
-        hits = retrieve_keyword(question, top_k=top_k)
+        hits = retrieve_keyword(question, top_k=top_k, project=project)
 
     return rerank(question, hits, top_n=RERANK_TOP_N)
 
 
-def build_context(question: str, extra_context: str | None = None) -> tuple[str | None, list[str]]:
+def build_context(
+    question: str,
+    extra_context: str | None = None,
+    project: str | None = None,
+) -> tuple[str | None, list[str], dict]:
     """
-    Build final context from retrieved + reranked docs + optional user context.
-    Returns (context_text, source_names).
+    Build final context from retrieved + reranked docs.
+    Returns (context_text, source_names, project_info).
     """
-    hits = retrieve(question)
+    hits = retrieve(question, project=project)
     parts: list[str] = []
     sources: list[str] = []
 
+    project_info = {
+        "project": (project or "").strip() or None,
+        "project_name": None,
+    }
     if hits:
+        # Prefer metadata from hits
+        for hit in hits:
+            if hit.get("project_name"):
+                project_info["project_name"] = hit["project_name"]
+                project_info["project"] = hit.get("project") or project_info["project"]
+                break
+        if project_info["project"] and not project_info["project_name"]:
+            project_info["project_name"] = project_info["project"].split("/")[-1]
+
         retrieved = "\n\n---\n\n".join(
             f"Source: {hit['source']}\n{hit['text']}" for hit in hits
         )
@@ -157,6 +204,6 @@ def build_context(question: str, extra_context: str | None = None) -> tuple[str 
             sources.append("user")
 
     if not parts:
-        return None, []
+        return None, [], project_info
 
-    return "\n\n====\n\n".join(parts), sources
+    return "\n\n====\n\n".join(parts), sources, project_info

@@ -16,9 +16,13 @@ app.include_router(auth_router)
 class AskRequest(BaseModel):
     question: str
     context: str | None = None
+    # e.g. "owner/repo" — limits search to that project's Pinecone vectors
+    project: str | None = None
 
 
 class AskResponse(BaseModel):
+    project: str | None = None
+    project_name: str | None = None
     answer: str
     sources: list[str] = []
 
@@ -44,6 +48,8 @@ class RepoIngestResponse(BaseModel):
     message: str
     owner: str
     repo: str
+    project: str
+    project_name: str
     branch: str
     files_ingested: int
     files_skipped: int
@@ -61,7 +67,10 @@ def root():
             "me": "GET /auth/me",
         },
         "repos": {
-            "ingest": "POST /repos/ingest  (GitHub API, no clone)",
+            "ingest": "POST /repos/ingest  (GitHub API + tree-sitter, no clone)",
+        },
+        "ask": {
+            "hint": 'POST /ask with optional "project": "owner/repo"',
         },
     }
 
@@ -74,9 +83,18 @@ def health():
 @app.post("/ask", response_model=AskResponse)
 def ask(body: AskRequest, user: dict = Depends(get_current_user)):
     try:
-        context, sources = build_context(body.question, body.context)
+        context, sources, project_info = build_context(
+            body.question,
+            body.context,
+            project=body.project,
+        )
         answer = llm_service.ask(body.question, context)
-        return AskResponse(answer=answer, sources=sources)
+        return AskResponse(
+            project=project_info.get("project"),
+            project_name=project_info.get("project_name"),
+            answer=answer,
+            sources=sources,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=502,
@@ -129,8 +147,8 @@ def ingest_github_repo(
     user: dict = Depends(get_current_user),
 ):
     """
-    Ingest a GitHub repo via API (PyGithub) — does NOT clone locally.
-    Requires login so we can use your GitHub OAuth token.
+    Ingest a GitHub project via API + tree-sitter — does NOT clone locally.
+    All code chunks are tagged with project=owner/repo for filtered /ask.
     """
     token = user.get("github_token")
     if not token:
