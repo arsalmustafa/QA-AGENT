@@ -5,6 +5,7 @@ __pycache__/
 .env.example
 .vscode/launch.json
 .vscode/settings.json
+.cursor/
 storage/*
 !storage/.gitkeep
 uploads/
