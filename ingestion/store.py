@@ -1,7 +1,10 @@
-"""Embed chunks and upsert into Pinecone."""
+"""Embed chunks and upsert into Pinecone (with project metadata)."""
 
 from embeddings import embed_text
 from pinecone_client import get_index, is_pinecone_configured
+
+# Pinecone metadata string fields — keep values bounded
+_META_TEXT_MAX = 35000
 
 
 def upsert_chunks(chunks: list[dict]) -> int:
@@ -18,19 +21,30 @@ def upsert_chunks(chunks: list[dict]) -> int:
     vectors = []
 
     for chunk in chunks:
-        values = embed_text(chunk["text"])
+        text = chunk.get("text") or ""
+        values = embed_text(text)
+        metadata = {
+            "source": str(chunk.get("source") or ""),
+            "text": text[:_META_TEXT_MAX],
+            "project": str(chunk.get("project") or ""),
+            "project_name": str(chunk.get("project_name") or ""),
+            "owner": str(chunk.get("owner") or ""),
+            "repo": str(chunk.get("repo") or ""),
+            "path": str(chunk.get("path") or ""),
+            "type": str(chunk.get("type") or "doc"),
+            "language": str(chunk.get("language") or ""),
+            "symbol": str(chunk.get("symbol") or ""),
+            "kind": str(chunk.get("kind") or ""),
+        }
+        # Drop empty optional fields? Keep them for consistent filtering.
         vectors.append(
             {
-                "id": chunk["id"],
+                "id": str(chunk["id"])[:512],
                 "values": values,
-                "metadata": {
-                    "source": chunk["source"],
-                    "text": chunk["text"],
-                },
+                "metadata": metadata,
             }
         )
 
-    # Upsert in batches of 50
     batch_size = 50
     for start in range(0, len(vectors), batch_size):
         index.upsert(vectors=vectors[start : start + batch_size])

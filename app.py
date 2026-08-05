@@ -7,6 +7,7 @@ from github_repos import fetch_and_ingest_repo
 from ingestion.file_handler import UnsupportedFileTypeError
 from ingestion.service import upload_and_process
 from llm_service import llm_service
+from project_catalog import list_catalogs, load_catalog
 from retriever import build_context
 
 app = FastAPI(title="QA Agent API", version="0.1.0")
@@ -16,9 +17,13 @@ app.include_router(auth_router)
 class AskRequest(BaseModel):
     question: str
     context: str | None = None
+    # e.g. "owner/repo" — limits search to that project's Pinecone vectors
+    project: str | None = None
 
 
 class AskResponse(BaseModel):
+    project: str | None = None
+    project_name: str | None = None
     answer: str
     sources: list[str] = []
 
@@ -44,12 +49,16 @@ class RepoIngestResponse(BaseModel):
     message: str
     owner: str
     repo: str
+    project: str
+    project_name: str
     branch: str
     files_ingested: int
     files_skipped: int
     chunks: int
     pinecone: bool
     files: list[dict]
+    catalog: dict
+    catalog_path: str
 
 
 @app.get("/")
@@ -61,7 +70,14 @@ def root():
             "me": "GET /auth/me",
         },
         "repos": {
-            "ingest": "POST /repos/ingest  (GitHub API, no clone)",
+            "ingest": "POST /repos/ingest  (GitHub API + tree-sitter, no clone)",
+        },
+        "projects": {
+            "list": "GET /projects",
+            "get": "GET /projects/{owner}/{repo}",
+        },
+        "ask": {
+            "hint": 'POST /ask with optional "project": "owner/repo"',
         },
     }
 
@@ -71,12 +87,42 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/projects")
+def get_projects(user: dict = Depends(get_current_user)):
+    """List ingested project catalogs (folders/files maps)."""
+    return {"projects": list_catalogs()}
+
+
+@app.get("/projects/{owner}/{repo}")
+def get_project(owner: str, repo: str, user: dict = Depends(get_current_user)):
+    """
+    Return folders/files structure for a specific project, e.g.:
+    { "folders": ["src", "tests"], "files": [{ "name": "auth.py", "type": "code" }] }
+    """
+    catalog = load_catalog(owner, repo)
+    if not catalog:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Project catalog not found for {owner}/{repo}. Ingest it first via POST /repos/ingest",
+        )
+    return catalog
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask(body: AskRequest, user: dict = Depends(get_current_user)):
     try:
-        context, sources = build_context(body.question, body.context)
+        context, sources, project_info = build_context(
+            body.question,
+            body.context,
+            project=body.project,
+        )
         answer = llm_service.ask(body.question, context)
-        return AskResponse(answer=answer, sources=sources)
+        return AskResponse(
+            project=project_info.get("project"),
+            project_name=project_info.get("project_name"),
+            answer=answer,
+            sources=sources,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=502,
@@ -129,8 +175,8 @@ def ingest_github_repo(
     user: dict = Depends(get_current_user),
 ):
     """
-    Ingest a GitHub repo via API (PyGithub) — does NOT clone locally.
-    Requires login so we can use your GitHub OAuth token.
+    Ingest a GitHub project via API + tree-sitter — does NOT clone locally.
+    Saves Pinecone chunks + folders/files catalog JSON.
     """
     token = user.get("github_token")
     if not token:

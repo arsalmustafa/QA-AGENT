@@ -8,4 +8,6 @@ __pycache__/
 .cursor/
 storage/*
 !storage/.gitkeep
+!storage/projects/
+!storage/projects/.gitkeep
 uploads/

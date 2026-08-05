@@ -14,17 +14,13 @@ qa_agnet/
 ├── pinecone_client.py
 ├── retriever.py
 ├── reranker.py            # Hybrid BM25 + vector rerank (top 10 → best 3)
-├── github_repos.py        # Read repos via GitHub API (no clone)
-├── auth/                  # GitHub OAuth + JWT
-│   ├── router.py          # /auth/github, /callback, /me
-│   ├── deps.py            # get_current_user
-│   ├── jwt_utils.py
-│   └── config.py
+├── github_repos.py        # GitHub API ingest (no clone)
 ├── ingestion/
-│   ├── file_handler.py    # pdf/md/txt → text
-│   ├── chunker.py
-│   ├── store.py           # Pinecone upsert
-│   └── service.py         # save to storage → process
+│   ├── code_chunker.py    # tree-sitter functions/classes
+│   ├── file_handler.py
+│   ├── chunker.py         # doc/pdf text chunks
+│   ├── store.py           # Pinecone upsert + project metadata
+│   └── service.py
 ├── storage/               # ONLY place uploaded files are kept
 ├── .env
 └── requirements.txt
@@ -65,30 +61,84 @@ QA_ACCESS_TOKEN=eyJ...
 
 Protected routes: `POST /ask`, `POST /documents`, `POST /repos/ingest`, `GET /auth/me`
 
-## Ingest GitHub repo (no clone)
+## Ingest GitHub repo (no clone + tree-sitter)
 
-Uses **PyGithub** + GitHub Contents/Tree API. Nothing is `git clone`d.
+Uses **PyGithub** + **tree-sitter** (many languages). Nothing is `git clone`d.
 
-1. Re-login (scope now includes `repo`): http://127.0.0.1:8000/auth/github  
-2. Call:
+1. Login: http://127.0.0.1:8000/auth/github  
+2. Ingest project:
 
 ```bash
 curl -X POST http://127.0.0.1:8000/repos/ingest \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"owner": "octocat", "repo": "Hello-World", "branch": "master"}'
+  -d '{"owner": "octocat", "repo": "Hello-World"}'
 ```
 
-Optional: `"path_prefix": "docs/"` to only ingest a folder.
+Code files are split into functions/classes and stored in Pinecone with:
+`project = "owner/repo"`, `path`, `symbol`, `language`.
 
-Flow:
-```text
-POST /repos/ingest
-  → GitHub API list tree
-  → fetch file contents
-  → save text copies to storage/
-  → chunk + embed → Pinecone
+A **folders/files catalog** is also saved at:
+`storage/projects/{owner}__{repo}.json`
+
+### Project catalog
+
+```bash
+# List projects
+curl http://127.0.0.1:8000/projects \
+  -H "Authorization: Bearer YOUR_JWT"
+
+# Get one project map
+curl http://127.0.0.1:8000/projects/octocat/Hello-World \
+  -H "Authorization: Bearer YOUR_JWT"
 ```
+
+Example catalog shape:
+
+```json
+{
+  "project": "octocat/Hello-World",
+  "project_name": "Hello-World",
+  "folders": ["src", "tests"],
+  "files": [
+    {
+      "name": "auth.py",
+      "path": "src/auth.py",
+      "type": "code",
+      "language": "python",
+      "symbols": ["authenticate_user"]
+    },
+    {
+      "name": "README.md",
+      "path": "README.md",
+      "type": "documentation",
+      "language": "markdown"
+    }
+  ]
+}
+```
+
+### Ask about a specific project
+
+```bash
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How does login work?", "project": "octocat/Hello-World"}'
+```
+
+Response:
+
+```json
+{
+  "project": "octocat/Hello-World",
+  "project_name": "Hello-World",
+  "answer": "...",
+  "sources": ["octocat/Hello-World:auth/login.py"]
+}
+```
+
+Omit `project` to search all docs + repos (previous behavior).
 
 ## Postman
 
