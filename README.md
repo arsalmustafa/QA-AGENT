@@ -7,14 +7,20 @@ Upload any new file → saved in `storage/` → text extracted → embedded.
 
 ```text
 qa_agnet/
-├── app.py                 # /ask , /documents
+├── app.py                 # /ask , /documents, /repos, /projects
+├── agents/                # Phase-1 multi-agent router
+│   ├── router.py          # rules → code | docs | security
+│   ├── prompts.py
+│   ├── base.py            # per-agent retrieval config
+│   └── runner.py          # retrieve → prompt → LLM
 ├── llm_service.py
-├── prompt.py
+├── prompt.py              # legacy single QA prompt (still used by llm_service.ask)
 ├── embeddings.py
 ├── pinecone_client.py
-├── retriever.py
+├── retriever.py           # Pinecone + type / security-path filters
 ├── reranker.py            # Hybrid BM25 + vector rerank (top 10 → best 3)
 ├── github_repos.py        # GitHub API ingest (no clone)
+├── project_catalog.py
 ├── ingestion/
 │   ├── code_chunker.py    # tree-sitter functions/classes
 │   ├── file_handler.py
@@ -131,6 +137,8 @@ Response:
 
 ```json
 {
+  "agent": "code",
+  "model": "qwen2.5-coder:7b",
   "project": "octocat/Hello-World",
   "project_name": "Hello-World",
   "answer": "...",
@@ -139,6 +147,42 @@ Response:
 ```
 
 Omit `project` to search all docs + repos (previous behavior).
+
+### Multi-agent ask (Phase 1)
+
+`POST /ask` routes each question to one of:
+
+| Agent | Retrieval | Model (default) | Focus |
+|-------|-----------|-----------------|--------|
+| `code` | Pinecone `type=code` | `OLLAMA_CODE_MODEL` (`qwen2.5-coder:7b`) | Functions, APIs, control flow |
+| `docs` | Pinecone `type=doc` | `OLLAMA_MODEL` (`llama3.1:8b`) | Setup, README, how-to |
+| `security` | Broader search, prefer auth/security paths | `OLLAMA_MODEL` | Auth, secrets, risks (grounded only) |
+
+Routing is **rule-based** (keywords). Force an agent with `"agent": "code"|"docs"|"security"`.
+
+Pull models once:
+
+```bash
+ollama pull llama3.1:8b
+ollama pull qwen2.5-coder:7b
+ollama pull nomic-embed-text
+```
+
+```bash
+# Auto-route
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Are JWT secrets handled safely?", "project": "octocat/Hello-World"}'
+
+# Force docs agent
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How do I install this?", "project": "octocat/Hello-World", "agent": "docs"}'
+```
+
+Postgres / Graph DB are **not** in Phase 1.
 
 ## Postman
 
@@ -214,10 +258,11 @@ Response example:
 
 ```text
 POST /ask
-  1. Embed question (Ollama)
-  2. Pinecone retrieve top 10
-  3. Rerank (vector + BM25 hybrid) → keep best 3
-  4. Llama answers from those chunks
+  1. Agent router → code | docs | security
+  2. Embed question (Ollama)
+  3. Pinecone retrieve (project + type / path filters) top 10
+  4. Rerank (vector + BM25 hybrid) → keep best 3
+  5. Agent prompt + Llama answer
 ```
 
 Config in `.env`:
@@ -230,8 +275,9 @@ RERANK_TOP_N=3
 
 ```bash
 curl -X POST http://127.0.0.1:8000/ask \
+  -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"question": "your question"}'
+  -d '{"question": "your question", "project": "owner/repo"}'
 ```
 
 ## Supported types
