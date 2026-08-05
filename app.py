@@ -7,6 +7,7 @@ from github_repos import fetch_and_ingest_repo
 from ingestion.file_handler import UnsupportedFileTypeError
 from ingestion.service import upload_and_process
 from llm_service import llm_service
+from project_catalog import list_catalogs, load_catalog
 from retriever import build_context
 
 app = FastAPI(title="QA Agent API", version="0.1.0")
@@ -56,6 +57,8 @@ class RepoIngestResponse(BaseModel):
     chunks: int
     pinecone: bool
     files: list[dict]
+    catalog: dict
+    catalog_path: str
 
 
 @app.get("/")
@@ -69,6 +72,10 @@ def root():
         "repos": {
             "ingest": "POST /repos/ingest  (GitHub API + tree-sitter, no clone)",
         },
+        "projects": {
+            "list": "GET /projects",
+            "get": "GET /projects/{owner}/{repo}",
+        },
         "ask": {
             "hint": 'POST /ask with optional "project": "owner/repo"',
         },
@@ -78,6 +85,27 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/projects")
+def get_projects(user: dict = Depends(get_current_user)):
+    """List ingested project catalogs (folders/files maps)."""
+    return {"projects": list_catalogs()}
+
+
+@app.get("/projects/{owner}/{repo}")
+def get_project(owner: str, repo: str, user: dict = Depends(get_current_user)):
+    """
+    Return folders/files structure for a specific project, e.g.:
+    { "folders": ["src", "tests"], "files": [{ "name": "auth.py", "type": "code" }] }
+    """
+    catalog = load_catalog(owner, repo)
+    if not catalog:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Project catalog not found for {owner}/{repo}. Ingest it first via POST /repos/ingest",
+        )
+    return catalog
 
 
 @app.post("/ask", response_model=AskResponse)
@@ -148,7 +176,7 @@ def ingest_github_repo(
 ):
     """
     Ingest a GitHub project via API + tree-sitter — does NOT clone locally.
-    All code chunks are tagged with project=owner/repo for filtered /ask.
+    Saves Pinecone chunks + folders/files catalog JSON.
     """
     token = user.get("github_token")
     if not token:

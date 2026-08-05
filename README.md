@@ -78,6 +78,46 @@ curl -X POST http://127.0.0.1:8000/repos/ingest \
 Code files are split into functions/classes and stored in Pinecone with:
 `project = "owner/repo"`, `path`, `symbol`, `language`.
 
+A **folders/files catalog** is also saved at:
+`storage/projects/{owner}__{repo}.json`
+
+### Project catalog
+
+```bash
+# List projects
+curl http://127.0.0.1:8000/projects \
+  -H "Authorization: Bearer YOUR_JWT"
+
+# Get one project map
+curl http://127.0.0.1:8000/projects/octocat/Hello-World \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+Example catalog shape:
+
+```json
+{
+  "project": "octocat/Hello-World",
+  "project_name": "Hello-World",
+  "folders": ["src", "tests"],
+  "files": [
+    {
+      "name": "auth.py",
+      "path": "src/auth.py",
+      "type": "code",
+      "language": "python",
+      "symbols": ["authenticate_user"]
+    },
+    {
+      "name": "README.md",
+      "path": "README.md",
+      "type": "documentation",
+      "language": "markdown"
+    }
+  ]
+}
+```
+
 ### Ask about a specific project
 
 ```bash

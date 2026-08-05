@@ -7,10 +7,11 @@ from pathlib import Path
 from github import Auth, Github, GithubException
 
 from ingestion.chunker import chunk_text
-from ingestion.code_chunker import EXT_TO_LANG, chunk_code
+from ingestion.code_chunker import EXT_TO_LANG, chunk_code, language_for_path
 from ingestion.service import ensure_storage, save_to_storage
 from ingestion.store import upsert_chunks
 from pinecone_client import is_pinecone_configured
+from project_catalog import build_catalog, save_catalog
 
 # Text / code files we ingest from repos
 REPO_TEXT_EXTENSIONS = set(EXT_TO_LANG.keys()) | {
@@ -65,6 +66,10 @@ def _is_code_file(path: str) -> bool:
     return Path(path).suffix.lower() in EXT_TO_LANG
 
 
+def _file_type(path: str) -> str:
+    return "code" if _is_code_file(path) else "documentation"
+
+
 def fetch_and_ingest_repo(
     github_token: str,
     owner: str,
@@ -74,7 +79,7 @@ def fetch_and_ingest_repo(
 ) -> dict:
     """
     Read ALL supported files for a project via GitHub API (no clone),
-    chunk code with tree-sitter, and store in Pinecone tagged by project.
+    chunk code with tree-sitter, store in Pinecone, and save folders/files catalog.
     """
     if not github_token:
         raise ValueError("GitHub access token is missing. Login again via /auth/github")
@@ -96,6 +101,7 @@ def fetch_and_ingest_repo(
 
     ensure_storage()
     ingested: list[dict] = []
+    catalog_files: list[dict] = []
     skipped = 0
     total_chunks = 0
 
@@ -138,6 +144,7 @@ def fetch_and_ingest_repo(
         path = save_to_storage(safe_name, text.encode("utf-8"))
 
         source = f"{project}:{file_path}"
+        symbols: list[str] = []
         if _is_code_file(file_path):
             chunks = chunk_code(
                 text,
@@ -148,8 +155,10 @@ def fetch_and_ingest_repo(
                 owner=owner,
                 repo=repo,
             )
+            symbols = sorted(
+                {c.get("symbol") for c in chunks if c.get("symbol")}
+            )
         else:
-            # Docs / config in the repo — still tagged with project
             plain = chunk_text(text, source=source)
             chunks = [
                 {
@@ -161,7 +170,9 @@ def fetch_and_ingest_repo(
                     "repo": repo,
                     "path": file_path,
                     "type": "doc",
-                    "language": "markdown" if file_path.endswith((".md", ".markdown")) else "text",
+                    "language": "markdown"
+                    if file_path.endswith((".md", ".markdown"))
+                    else "text",
                     "symbol": "",
                     "kind": "file",
                 }
@@ -173,6 +184,17 @@ def fetch_and_ingest_repo(
             chunk_count = upsert_chunks(chunks)
             total_chunks += chunk_count
 
+        ftype = _file_type(file_path)
+        catalog_entry: dict = {
+            "path": file_path,
+            "type": ftype,
+            "language": language_for_path(file_path)
+            or ("markdown" if ftype == "documentation" else "text"),
+        }
+        if symbols:
+            catalog_entry["symbols"] = symbols
+        catalog_files.append(catalog_entry)
+
         ingested.append(
             {
                 "path": file_path,
@@ -182,6 +204,14 @@ def fetch_and_ingest_repo(
                 "code": _is_code_file(file_path),
             }
         )
+
+    catalog = build_catalog(
+        owner=owner,
+        repo=repo,
+        branch=ref,
+        file_entries=catalog_files,
+    )
+    catalog_file = save_catalog(catalog)
 
     return {
         "owner": owner,
@@ -194,8 +224,10 @@ def fetch_and_ingest_repo(
         "chunks": total_chunks,
         "pinecone": is_pinecone_configured(),
         "files": ingested,
+        "catalog": catalog,
+        "catalog_path": str(catalog_file),
         "message": (
             f"Ingested {len(ingested)} files from project {project}@{ref} "
-            f"via GitHub API + tree-sitter (no clone)."
+            f"via GitHub API + tree-sitter (no clone). Catalog saved."
         ),
     }
