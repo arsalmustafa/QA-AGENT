@@ -1,16 +1,24 @@
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from agents import run_ask
+from auth.config import CORS_ORIGINS
 from auth.deps import get_current_user
 from auth.router import router as auth_router
 from github_repos import fetch_and_ingest_repo
 from ingestion.file_handler import UnsupportedFileTypeError
 from ingestion.service import upload_and_process
-from llm_service import llm_service
 from project_catalog import list_catalogs, load_catalog
-from retriever import build_context
 
 app = FastAPI(title="QA Agent API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS or ["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 
 
@@ -19,9 +27,13 @@ class AskRequest(BaseModel):
     context: str | None = None
     # e.g. "owner/repo" — limits search to that project's Pinecone vectors
     project: str | None = None
+    # optional force: "code" | "docs" | "security" (else auto-routed)
+    agent: str | None = None
 
 
 class AskResponse(BaseModel):
+    agent: str
+    model: str | None = None
     project: str | None = None
     project_name: str | None = None
     answer: str
@@ -67,6 +79,8 @@ def root():
         "message": "Welcome to QA Agent API",
         "auth": {
             "login": "GET /auth/github",
+            "start": "GET /auth/github/start  (Postman JSON)",
+            "callback": "GET /auth/github/callback",
             "me": "GET /auth/me",
         },
         "repos": {
@@ -77,7 +91,11 @@ def root():
             "get": "GET /projects/{owner}/{repo}",
         },
         "ask": {
-            "hint": 'POST /ask with optional "project": "owner/repo"',
+            "hint": (
+                'POST /ask with optional "project": "owner/repo" '
+                'and optional "agent": "code"|"docs"|"security"'
+            ),
+            "agents": ["code", "docs", "security"],
         },
     }
 
@@ -110,19 +128,26 @@ def get_project(owner: str, repo: str, user: dict = Depends(get_current_user)):
 
 @app.post("/ask", response_model=AskResponse)
 def ask(body: AskRequest, user: dict = Depends(get_current_user)):
+    """
+    Route to Code / Docs / Security agent, retrieve filtered context, answer via LLM.
+    """
     try:
-        context, sources, project_info = build_context(
+        result = run_ask(
             body.question,
-            body.context,
+            extra_context=body.context,
             project=body.project,
+            agent=body.agent,
         )
-        answer = llm_service.ask(body.question, context)
         return AskResponse(
-            project=project_info.get("project"),
-            project_name=project_info.get("project_name"),
-            answer=answer,
-            sources=sources,
+            agent=result["agent"],
+            model=result.get("model"),
+            project=result.get("project"),
+            project_name=result.get("project_name"),
+            answer=result["answer"],
+            sources=result.get("sources") or [],
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=502,

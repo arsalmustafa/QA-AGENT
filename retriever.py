@@ -59,11 +59,97 @@ def _load_chunks() -> list[dict]:
     return chunks
 
 
+CODE_EXTENSIONS = {
+    ".py",
+    ".js",
+    ".ts",
+    ".tsx",
+    ".jsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".rb",
+    ".php",
+    ".cs",
+    ".cpp",
+    ".c",
+    ".h",
+    ".swift",
+    ".kt",
+    ".scala",
+}
+
+DOC_EXTENSIONS = {".md", ".markdown", ".txt", ".rst", ".pdf", ".csv"}
+
+# Path substrings used to prefer security-relevant hits locally
+SECURITY_PATH_HINTS = (
+    "auth",
+    "security",
+    "jwt",
+    "oauth",
+    "token",
+    "secret",
+    "password",
+    "permission",
+    "rbac",
+    "crypto",
+    "session",
+    "credential",
+    "login",
+    "middleware",
+)
+
+
+def _pinecone_filter(
+    project: str | None = None,
+    chunk_type: str | None = None,
+) -> dict | None:
+    """Build Pinecone metadata filter from optional project + chunk type."""
+    clauses: list[dict] = []
+    if project and project.strip():
+        clauses.append({"project": {"$eq": project.strip()}})
+    if chunk_type and chunk_type.strip():
+        clauses.append({"type": {"$eq": chunk_type.strip()}})
+    if not clauses:
+        return None
+    if len(clauses) == 1:
+        return clauses[0]
+    return {"$and": clauses}
+
+
+def _source_looks_like_code(source: str) -> bool:
+    return Path(source).suffix.lower() in CODE_EXTENSIONS
+
+
+def _source_looks_like_doc(source: str) -> bool:
+    suffix = Path(source).suffix.lower()
+    if suffix in DOC_EXTENSIONS:
+        return True
+    name = Path(source).name.lower()
+    return name.startswith("readme") or name in {"license", "licence"}
+
+
+def _path_matches_security(path: str, source: str) -> bool:
+    hay = f"{path} {source}".lower()
+    return any(hint in hay for hint in SECURITY_PATH_HINTS)
+
+
+def _prefer_security_hits(hits: list[dict]) -> list[dict]:
+    """If any security-ish paths exist, keep those; otherwise keep all."""
+    preferred = [
+        h
+        for h in hits
+        if _path_matches_security(h.get("path") or "", h.get("source") or "")
+    ]
+    return preferred or hits
+
+
 def retrieve_keyword(
     question: str,
     top_k: int = RETRIEVE_TOP_K,
     min_score: int = 1,
     project: str | None = None,
+    chunk_type: str | None = None,
 ) -> list[dict]:
     """Fallback: simple keyword retrieval over storage/."""
     question_tokens = _tokenize(question)
@@ -71,9 +157,14 @@ def retrieve_keyword(
         return []
 
     project_key = (project or "").strip().lower()
+    type_key = (chunk_type or "").strip().lower()
     scored: list[dict] = []
     for chunk in _load_chunks():
         if project_key and project_key not in chunk["source"].lower():
+            continue
+        if type_key == "code" and not _source_looks_like_code(chunk["source"]):
+            continue
+        if type_key == "doc" and not _source_looks_like_doc(chunk["source"]):
             continue
         overlap = question_tokens & chunk["tokens"]
         score = len(overlap)
@@ -85,6 +176,11 @@ def retrieve_keyword(
                     "score": float(score),
                     "project": chunk.get("project") or "",
                     "project_name": chunk.get("project_name") or "",
+                    "path": "",
+                    "symbol": "",
+                    "type": "code"
+                    if _source_looks_like_code(chunk["source"])
+                    else "doc",
                 }
             )
 
@@ -96,8 +192,9 @@ def retrieve_pinecone(
     question: str,
     top_k: int = RETRIEVE_TOP_K,
     project: str | None = None,
+    chunk_type: str | None = None,
 ) -> list[dict]:
-    """Semantic retrieval using embeddings + Pinecone (optional project filter)."""
+    """Semantic retrieval using embeddings + Pinecone (optional filters)."""
     vector = embed_text(question)
     index = get_index()
 
@@ -106,8 +203,9 @@ def retrieve_pinecone(
         "top_k": top_k,
         "include_metadata": True,
     }
-    if project and project.strip():
-        query_kwargs["filter"] = {"project": {"$eq": project.strip()}}
+    meta_filter = _pinecone_filter(project=project, chunk_type=chunk_type)
+    if meta_filter:
+        query_kwargs["filter"] = meta_filter
 
     result = index.query(**query_kwargs)
 
@@ -140,6 +238,7 @@ def retrieve_pinecone(
                 "project_name": metadata.get("project_name") or "",
                 "path": metadata.get("path") or "",
                 "symbol": metadata.get("symbol") or "",
+                "type": metadata.get("type") or "",
             }
         )
     return hits
@@ -149,16 +248,34 @@ def retrieve(
     question: str,
     top_k: int = RETRIEVE_TOP_K,
     project: str | None = None,
+    chunk_type: str | None = None,
+    prefer_security_paths: bool = False,
 ) -> list[dict]:
     """Retrieve candidates (default top 10), then rerank to best N."""
+    # Fetch a bit more when we will narrow to security paths
+    fetch_k = top_k * 2 if prefer_security_paths else top_k
+
     if is_pinecone_configured():
-        hits = retrieve_pinecone(question, top_k=top_k, project=project)
+        hits = retrieve_pinecone(
+            question,
+            top_k=fetch_k,
+            project=project,
+            chunk_type=chunk_type,
+        )
     else:
         print(
             "PINECONE_API_KEY not set — using keyword fallback on storage/. "
             "Add your key to .env, then upload files via POST /documents"
         )
-        hits = retrieve_keyword(question, top_k=top_k, project=project)
+        hits = retrieve_keyword(
+            question,
+            top_k=fetch_k,
+            project=project,
+            chunk_type=chunk_type,
+        )
+
+    if prefer_security_paths:
+        hits = _prefer_security_hits(hits)
 
     return rerank(question, hits, top_n=RERANK_TOP_N)
 
@@ -167,12 +284,19 @@ def build_context(
     question: str,
     extra_context: str | None = None,
     project: str | None = None,
+    chunk_type: str | None = None,
+    prefer_security_paths: bool = False,
 ) -> tuple[str | None, list[str], dict]:
     """
     Build final context from retrieved + reranked docs.
     Returns (context_text, source_names, project_info).
     """
-    hits = retrieve(question, project=project)
+    hits = retrieve(
+        question,
+        project=project,
+        chunk_type=chunk_type,
+        prefer_security_paths=prefer_security_paths,
+    )
     parts: list[str] = []
     sources: list[str] = []
 

@@ -1,0 +1,641 @@
+{
+  "project": "afaafaurangzaib/scheduling_agent",
+  "project_name": "scheduling_agent",
+  "owner": "afaafaurangzaib",
+  "repo": "scheduling_agent",
+  "branch": "main",
+  "folders": [
+    "apps",
+    "apps/admin-web",
+    "apps/admin-web/src",
+    "apps/admin-web/src/api",
+    "apps/admin-web/src/components",
+    "apps/admin-web/src/types",
+    "apps/api",
+    "apps/api/app",
+    "apps/api/app/agent",
+    "apps/api/app/api",
+    "apps/api/app/api/routes",
+    "apps/api/app/data",
+    "apps/api/app/data/mock",
+    "apps/api/app/integrations",
+    "apps/api/app/integrations/mock",
+    "apps/api/app/llm",
+    "apps/api/app/schemas",
+    "apps/api/app/services",
+    "apps/api/app/utils",
+    "apps/api/tests",
+    "apps/api/tests/fixtures"
+  ],
+  "files": [
+    {
+      "name": "README.md",
+      "path": "README.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": ".oxlintrc.json",
+      "path": "apps/admin-web/.oxlintrc.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "README.md",
+      "path": "apps/admin-web/README.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "index.html",
+      "path": "apps/admin-web/index.html",
+      "type": "code",
+      "language": "html"
+    },
+    {
+      "name": "package-lock.json",
+      "path": "apps/admin-web/package-lock.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "package.json",
+      "path": "apps/admin-web/package.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "App.tsx",
+      "path": "apps/admin-web/src/App.tsx",
+      "type": "code",
+      "language": "tsx",
+      "symbols": [
+        "export_statement",
+        "uid"
+      ]
+    },
+    {
+      "name": "client.ts",
+      "path": "apps/admin-web/src/api/client.ts",
+      "type": "code",
+      "language": "typescript",
+      "symbols": [
+        "export_statement",
+        "request"
+      ]
+    },
+    {
+      "name": "ApprovalInbox.tsx",
+      "path": "apps/admin-web/src/components/ApprovalInbox.tsx",
+      "type": "code",
+      "language": "tsx",
+      "symbols": [
+        "ApprovalInboxProps",
+        "export_statement"
+      ]
+    },
+    {
+      "name": "Composer.tsx",
+      "path": "apps/admin-web/src/components/Composer.tsx",
+      "type": "code",
+      "language": "tsx",
+      "symbols": [
+        "ComposerProps",
+        "export_statement"
+      ]
+    },
+    {
+      "name": "MessageList.tsx",
+      "path": "apps/admin-web/src/components/MessageList.tsx",
+      "type": "code",
+      "language": "tsx",
+      "symbols": [
+        "MessageListProps",
+        "export_statement"
+      ]
+    },
+    {
+      "name": "Sidebar.tsx",
+      "path": "apps/admin-web/src/components/Sidebar.tsx",
+      "type": "code",
+      "language": "tsx",
+      "symbols": [
+        "SidebarProps",
+        "export_statement"
+      ]
+    },
+    {
+      "name": "SlackFeed.tsx",
+      "path": "apps/admin-web/src/components/SlackFeed.tsx",
+      "type": "code",
+      "language": "tsx",
+      "symbols": [
+        "SlackFeedProps",
+        "export_statement"
+      ]
+    },
+    {
+      "name": "index.css",
+      "path": "apps/admin-web/src/index.css",
+      "type": "code",
+      "language": "css"
+    },
+    {
+      "name": "main.tsx",
+      "path": "apps/admin-web/src/main.tsx",
+      "type": "code",
+      "language": "tsx"
+    },
+    {
+      "name": "index.ts",
+      "path": "apps/admin-web/src/types/index.ts",
+      "type": "code",
+      "language": "typescript",
+      "symbols": [
+        "export_statement"
+      ]
+    },
+    {
+      "name": "vite-env.d.ts",
+      "path": "apps/admin-web/src/vite-env.d.ts",
+      "type": "code",
+      "language": "typescript",
+      "symbols": [
+        "ImportMeta",
+        "ImportMetaEnv"
+      ]
+    },
+    {
+      "name": "tsconfig.app.json",
+      "path": "apps/admin-web/tsconfig.app.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "tsconfig.json",
+      "path": "apps/admin-web/tsconfig.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "tsconfig.node.json",
+      "path": "apps/admin-web/tsconfig.node.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "vite.config.ts",
+      "path": "apps/admin-web/vite.config.ts",
+      "type": "code",
+      "language": "typescript",
+      "symbols": [
+        "export_statement"
+      ]
+    },
+    {
+      "name": "README.md",
+      "path": "apps/api/README.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "intent.py",
+      "path": "apps/api/app/agent/intent.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "IntentRouter",
+        "__init__",
+        "_extract_client_name",
+        "_extract_therapist_name",
+        "_extract_when",
+        "_normalize_route",
+        "_rule_conversation",
+        "_rule_route",
+        "classify_conversation",
+        "route_admin_message"
+      ]
+    },
+    {
+      "name": "orchestrator.py",
+      "path": "apps/api/app/agent/orchestrator.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "SchedulingOrchestrator",
+        "__init__",
+        "_resolve_approval_time",
+        "handle_approval_from_message",
+        "handle_chat",
+        "handle_scan",
+        "handle_schedule",
+        "respond_to_approval"
+      ]
+    },
+    {
+      "name": "router.py",
+      "path": "apps/api/app/api/router.py",
+      "type": "code",
+      "language": "python"
+    },
+    {
+      "name": "agent.py",
+      "path": "apps/api/app/api/routes/agent.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "agent_chat",
+        "agent_scan"
+      ]
+    },
+    {
+      "name": "appointments.py",
+      "path": "apps/api/app/api/routes/appointments.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "list_appointments",
+        "list_audit",
+        "list_clients",
+        "list_slots",
+        "list_therapists"
+      ]
+    },
+    {
+      "name": "approvals.py",
+      "path": "apps/api/app/api/routes/approvals.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "get_approval",
+        "list_approvals",
+        "respond_approval"
+      ]
+    },
+    {
+      "name": "health.py",
+      "path": "apps/api/app/api/routes/health.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "health"
+      ]
+    },
+    {
+      "name": "slack.py",
+      "path": "apps/api/app/api/routes/slack.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "list_slack_messages"
+      ]
+    },
+    {
+      "name": "config.py",
+      "path": "apps/api/app/config.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "Settings",
+        "get_settings",
+        "mock_data_path",
+        "use_openai"
+      ]
+    },
+    {
+      "name": "constants.py",
+      "path": "apps/api/app/constants.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "AdminRequestType",
+        "AppointmentStatus",
+        "ApprovalDecision",
+        "ApprovalStatus",
+        "CommunicationSource",
+        "IntentType",
+        "PolicyDecision",
+        "SlackMessageType",
+        "SlotStatus"
+      ]
+    },
+    {
+      "name": "README.md",
+      "path": "apps/api/app/data/mock/README.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "_meta.json",
+      "path": "apps/api/app/data/mock/_meta.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "appointments.json",
+      "path": "apps/api/app/data/mock/appointments.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "approvals.json",
+      "path": "apps/api/app/data/mock/approvals.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "audit_log.json",
+      "path": "apps/api/app/data/mock/audit_log.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "availability.json",
+      "path": "apps/api/app/data/mock/availability.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "blocked_slots.json",
+      "path": "apps/api/app/data/mock/blocked_slots.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "calendar_slots.json",
+      "path": "apps/api/app/data/mock/calendar_slots.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "clients.json",
+      "path": "apps/api/app/data/mock/clients.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "ringcentral_conversations.json",
+      "path": "apps/api/app/data/mock/ringcentral_conversations.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "slack_messages.json",
+      "path": "apps/api/app/data/mock/slack_messages.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "therapist_client_chats.json",
+      "path": "apps/api/app/data/mock/therapist_client_chats.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "therapists.json",
+      "path": "apps/api/app/data/mock/therapists.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "twilio_conversations.json",
+      "path": "apps/api/app/data/mock/twilio_conversations.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "dependencies.py",
+      "path": "apps/api/app/dependencies.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "get_data_store",
+        "get_orchestrator",
+        "settings_dep"
+      ]
+    },
+    {
+      "name": "loader.py",
+      "path": "apps/api/app/integrations/mock/loader.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "load_all_mock",
+        "load_json",
+        "save_json"
+      ]
+    },
+    {
+      "name": "client.py",
+      "path": "apps/api/app/llm/client.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "LLMClient",
+        "__init__",
+        "chat_json",
+        "enabled",
+        "get_llm"
+      ]
+    },
+    {
+      "name": "prompts.py",
+      "path": "apps/api/app/llm/prompts.py",
+      "type": "code",
+      "language": "python"
+    },
+    {
+      "name": "main.py",
+      "path": "apps/api/app/main.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "root"
+      ]
+    },
+    {
+      "name": "__init__.py",
+      "path": "apps/api/app/schemas/__init__.py",
+      "type": "code",
+      "language": "python"
+    },
+    {
+      "name": "agent.py",
+      "path": "apps/api/app/schemas/agent.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "AgentResponse",
+        "ApprovalRespondRequest",
+        "ChatRequest",
+        "FindingOut",
+        "HealthResponse",
+        "ScanRequest"
+      ]
+    },
+    {
+      "name": "calendar.py",
+      "path": "apps/api/app/services/calendar.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "CalendarCheck",
+        "CalendarService",
+        "__init__",
+        "_find_client_conflict",
+        "_find_duplicate",
+        "_find_therapist_conflict",
+        "_overlap",
+        "check",
+        "find_existing_for_confirm",
+        "suggest_alternatives"
+      ]
+    },
+    {
+      "name": "lookup.py",
+      "path": "apps/api/app/services/lookup.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "LookupResult",
+        "LookupService",
+        "__init__",
+        "assigned_therapist",
+        "find_clients",
+        "find_therapists",
+        "ok",
+        "therapist_matches_assignment"
+      ]
+    },
+    {
+      "name": "policy.py",
+      "path": "apps/api/app/services/policy.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "PolicyResult",
+        "PolicyService",
+        "evaluate_schedule"
+      ]
+    },
+    {
+      "name": "scheduling.py",
+      "path": "apps/api/app/services/scheduling.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "ApprovalService",
+        "AuditService",
+        "SchedulingService",
+        "SlackService",
+        "__init__",
+        "create",
+        "create_appointment",
+        "get",
+        "list_pending",
+        "log",
+        "next_appointment_id",
+        "notify_scheduled",
+        "request_approval",
+        "respond"
+      ]
+    },
+    {
+      "name": "store.py",
+      "path": "apps/api/app/services/store.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "DataStore",
+        "__init__",
+        "_mark_slot_booked",
+        "_persist",
+        "add_appointment",
+        "add_approval",
+        "add_audit",
+        "add_slack_message",
+        "appointments",
+        "approvals",
+        "audit_log",
+        "availability",
+        "blocked_slots",
+        "calendar_slots",
+        "clients",
+        "conversations_for",
+        "get_appointment",
+        "get_approval",
+        "get_client",
+        "get_store",
+        "get_therapist",
+        "meta",
+        "reload",
+        "reset_store",
+        "slack_messages",
+        "snapshot",
+        "therapists",
+        "update_approval"
+      ]
+    },
+    {
+      "name": "dates.py",
+      "path": "apps/api/app/utils/dates.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "_extract_time",
+        "_parse_relative",
+        "combine_date_time",
+        "end_from_start",
+        "format_appt",
+        "get_reference_today",
+        "get_timezone",
+        "normalize_scan_date",
+        "parse_natural_datetime",
+        "to_iso"
+      ]
+    },
+    {
+      "name": "text.py",
+      "path": "apps/api/app/utils/text.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "extract_json_object",
+        "names_match",
+        "normalize_name"
+      ]
+    },
+    {
+      "name": "requirements.txt",
+      "path": "apps/api/requirements.txt",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "CHAT_TEST_PROMPTS.md",
+      "path": "apps/api/tests/CHAT_TEST_PROMPTS.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "chat_test_prompts.json",
+      "path": "apps/api/tests/fixtures/chat_test_prompts.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "test_chat_scenarios.py",
+      "path": "apps/api/tests/test_chat_scenarios.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "_load_prompts",
+        "all_prompt_cases",
+        "orchestrator",
+        "test_chat_prompt_returns_reply",
+        "test_list_all_prompts_for_manual_copy",
+        "test_prompt_fixture_file_exists"
+      ]
+    }
+  ]
+}

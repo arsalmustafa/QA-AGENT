@@ -11,3 +11,8 @@ storage/*
 !storage/projects/
 !storage/projects/.gitkeep
 uploads/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env

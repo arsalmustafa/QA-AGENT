@@ -7,24 +7,66 @@ Upload any new file → saved in `storage/` → text extracted → embedded.
 
 ```text
 qa_agnet/
-├── app.py                 # /ask , /documents
+    ├── app.py                 # /ask , /documents, /repos, /projects
+    ├── frontend/              # React (Vite) SPA — separate from API
+    ├── agents/                # Phase-1 multi-agent router
+│   ├── router.py          # rules → code | docs | security
+│   ├── prompts.py
+│   ├── base.py            # per-agent retrieval config
+│   └── runner.py          # retrieve → prompt → LLM
 ├── llm_service.py
-├── prompt.py
+├── prompt.py              # legacy single QA prompt (still used by llm_service.ask)
 ├── embeddings.py
 ├── pinecone_client.py
-├── retriever.py
+├── retriever.py           # Pinecone + type / security-path filters
 ├── reranker.py            # Hybrid BM25 + vector rerank (top 10 → best 3)
 ├── github_repos.py        # GitHub API ingest (no clone)
+├── project_catalog.py
 ├── ingestion/
 │   ├── code_chunker.py    # tree-sitter functions/classes
 │   ├── file_handler.py
 │   ├── chunker.py         # doc/pdf text chunks
 │   ├── store.py           # Pinecone upsert + project metadata
 │   └── service.py
-├── storage/               # ONLY place uploaded files are kept
+├── storage/               # uploaded files + projects catalogs
+├── postman/               # Postman collection for QA
+│   ├── QA_Agent_API.postman_collection.json
+│   └── README.md
 ├── .env
 └── requirements.txt
 ```
+
+## Frontend (React)
+
+Separate SPA in `frontend/` (Vite + React + TypeScript).
+
+```bash
+# terminal 1 — API
+source .venv/bin/activate
+uvicorn app:app --reload
+
+# terminal 2 — UI
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 → **Continue with GitHub**.
+
+Root `.env` should include:
+
+```env
+FRONTEND_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+After OAuth, the API redirects to `/auth/callback?token=…&refresh_token=…` on the SPA.  
+The SPA stores both tokens and **auto-refreshes** the access token via `POST /auth/refresh`  
+(before expiry, and once on 401). Default access TTL is 60 minutes; refresh lasts 30 days.
+
+Postman can still get JSON by calling the callback with `format=json`.
+
+See `frontend/README.md` for routes and details.
 
 ## Independent upload flow
 
@@ -131,6 +173,8 @@ Response:
 
 ```json
 {
+  "agent": "code",
+  "model": "qwen2.5-coder:7b",
   "project": "octocat/Hello-World",
   "project_name": "Hello-World",
   "answer": "...",
@@ -140,48 +184,58 @@ Response:
 
 Omit `project` to search all docs + repos (previous behavior).
 
-## Postman
+### Multi-agent ask (Phase 1)
 
-Create an environment (e.g. `QA Agent Local`) with:
+`POST /ask` routes each question to one of:
 
-| Variable | Initial value |
-|---|---|
-| `base_url` | `http://127.0.0.1:8000` |
-| `token` | paste value of `QA_ACCESS_TOKEN` from `.env` |
+| Agent | Retrieval | Model (default) | Focus |
+|-------|-----------|-----------------|--------|
+| `code` | Pinecone `type=code` | `OLLAMA_CODE_MODEL` (`qwen2.5-coder:7b`) | Functions, APIs, control flow |
+| `docs` | Pinecone `type=doc` | `OLLAMA_MODEL` (`llama3.1:8b`) | Setup, README, how-to |
+| `security` | Broader search, prefer auth/security paths | `OLLAMA_MODEL` | Auth, secrets, risks (grounded only) |
 
-Then create these requests (Auth → Bearer Token → `{{token}}`):
+Routing is **rule-based** (keywords). Force an agent with `"agent": "code"|"docs"|"security"`.
 
-1. **Me** — `GET {{base_url}}/auth/me`
-2. **Upload** — `POST {{base_url}}/documents`  
-   Body → form-data → key `file` (type File) → choose a `.md` / `.pdf` / etc.
-3. **Ingest repo** — `POST {{base_url}}/repos/ingest`  
-   Body → raw JSON:
-
-```json
-{
-  "owner": "octocat",
-  "repo": "Hello-World",
-  "branch": "master"
-}
-```
-
-4. **Ask** — `POST {{base_url}}/ask`  
-   Body → raw JSON:
-
-```json
-{
-  "question": "How do I run and test the Lavni scheduling agent?"
-}
-```
-
-Or with curl:
+Pull models once:
 
 ```bash
+ollama pull llama3.1:8b
+ollama pull qwen2.5-coder:7b
+ollama pull nomic-embed-text
+```
+
+```bash
+# Auto-route
 curl -X POST http://127.0.0.1:8000/ask \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"question": "your question"}'
+  -d '{"question": "Are JWT secrets handled safely?", "project": "octocat/Hello-World"}'
+
+# Force docs agent
+curl -X POST http://127.0.0.1:8000/ask \
+  -H "Authorization: Bearer YOUR_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "How do I install this?", "project": "octocat/Hello-World", "agent": "docs"}'
 ```
+
+Postgres / Graph DB are **not** in Phase 1.
+
+## Postman
+
+Import the ready-made collection:
+
+```text
+postman/
+├── QA_Agent_API.postman_collection.json
+└── README.md
+```
+
+1. Postman → **Import** → `postman/QA_Agent_API.postman_collection.json`
+2. Collection → **Variables** → set `base_url` if needed  
+3. Run **1. Auth → Start OAuth**, open `authorize_url` in a browser, then paste `access_token` into `token` (or use **Callback** with `oauth_code`)
+3. `base_url` defaults to `http://127.0.0.1:8000`
+
+Folders: Health, Auth, Projects, Ingest, Ask (multi-agent).
 
 ## Run
 
@@ -214,10 +268,11 @@ Response example:
 
 ```text
 POST /ask
-  1. Embed question (Ollama)
-  2. Pinecone retrieve top 10
-  3. Rerank (vector + BM25 hybrid) → keep best 3
-  4. Llama answers from those chunks
+  1. Agent router → code | docs | security
+  2. Embed question (Ollama)
+  3. Pinecone retrieve (project + type / path filters) top 10
+  4. Rerank (vector + BM25 hybrid) → keep best 3
+  5. Agent prompt + Llama answer
 ```
 
 Config in `.env`:
@@ -230,8 +285,9 @@ RERANK_TOP_N=3
 
 ```bash
 curl -X POST http://127.0.0.1:8000/ask \
+  -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
-  -d '{"question": "your question"}'
+  -d '{"question": "your question", "project": "owner/repo"}'
 ```
 
 ## Supported types

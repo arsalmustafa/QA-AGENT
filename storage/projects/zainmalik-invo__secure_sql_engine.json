@@ -1,0 +1,69 @@
+{
+  "project": "zainmalik-invo/secure_sql_engine",
+  "project_name": "secure_sql_engine",
+  "owner": "zainmalik-invo",
+  "repo": "secure_sql_engine",
+  "branch": "main",
+  "folders": [
+    "data",
+    "data/bronze",
+    "sql",
+    "src"
+  ],
+  "files": [
+    {
+      "name": "README.md",
+      "path": "README.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "customers.csv",
+      "path": "data/bronze/customers.csv",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "orders.csv",
+      "path": "data/bronze/orders.csv",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "products.csv",
+      "path": "data/bronze/products.csv",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "requirements.txt",
+      "path": "requirements.txt",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "01_postgres_schema.sql",
+      "path": "sql/01_postgres_schema.sql",
+      "type": "code",
+      "language": "sql"
+    },
+    {
+      "name": "02_security_controls.sql",
+      "path": "sql/02_security_controls.sql",
+      "type": "code",
+      "language": "sql"
+    },
+    {
+      "name": "03_test_security.sql",
+      "path": "sql/03_test_security.sql",
+      "type": "code",
+      "language": "sql"
+    },
+    {
+      "name": "generate_data.py",
+      "path": "src/generate_data.py",
+      "type": "code",
+      "language": "python"
+    }
+  ]
+}

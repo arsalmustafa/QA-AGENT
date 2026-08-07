@@ -11,6 +11,8 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
+# Optional override for Code Agent (falls back to OLLAMA_MODEL)
+OLLAMA_CODE_MODEL = (os.getenv("OLLAMA_CODE_MODEL") or "").strip() or OLLAMA_MODEL
 
 if not OLLAMA_URL or not OLLAMA_MODEL:
     raise RuntimeError(
@@ -19,19 +21,29 @@ if not OLLAMA_URL or not OLLAMA_MODEL:
 
 
 class LLMService:
-    """Handles communication with the local Llama model via Ollama."""
+    """Handles communication with local models via Ollama."""
 
-    def __init__(self, url: str = OLLAMA_URL, model: str = OLLAMA_MODEL):
+    def __init__(
+        self,
+        url: str = OLLAMA_URL,
+        model: str = OLLAMA_MODEL,
+        code_model: str | None = None,
+    ):
         self.url = url
         self.model = model
+        self.code_model = code_model or OLLAMA_CODE_MODEL or model
 
     def ask(self, question: str, context: str | None = None) -> str:
         prompt = build_qa_prompt(question, context)
-        return self._generate(prompt)
+        return self.generate(prompt)
 
-    def _generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, *, model: str | None = None) -> str:
+        """Send a fully built prompt to Ollama (optional per-call model)."""
+        return self._generate(prompt, model=model or self.model)
+
+    def _generate(self, prompt: str, *, model: str) -> str:
         payload = {
-            "model": self.model,
+            "model": model,
             "prompt": prompt,
             "stream": False,
             "options": {

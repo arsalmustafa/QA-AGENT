@@ -2,17 +2,20 @@ import secrets
 from urllib.parse import urlencode
 
 import httpx
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 
 from auth.config import (
+    FRONTEND_URL,
     GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET,
     GITHUB_REDIRECT_URI,
     github_oauth_configured,
 )
 from auth.deps import get_current_user
-from auth.jwt_utils import create_access_token
+from auth.jwt_utils import create_token_pair, decode_refresh_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -22,6 +25,10 @@ GITHUB_USER_URL = "https://api.github.com/user"
 
 # Simple in-memory state store for CSRF protection (fine for local/dev)
 _pending_states: set[str] = set()
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 def _require_oauth_config() -> None:
@@ -37,19 +44,47 @@ def _require_oauth_config() -> None:
 
 @router.get("/github")
 def github_login():
-    """Redirect the user to GitHub to authorize the app."""
+    """Redirect the user to GitHub to authorize the app (browser)."""
     _require_oauth_config()
+    authorize_url, _state = _build_authorize_url()
+    return RedirectResponse(authorize_url)
 
+
+@router.get("/github/start")
+def github_login_start():
+    """
+    Postman-friendly OAuth start (no redirect).
+    Returns authorize_url + state. Open authorize_url in a browser,
+    then call /auth/github/callback with code & state (or copy token from browser JSON).
+    """
+    _require_oauth_config()
+    authorize_url, state = _build_authorize_url()
+    return {
+        "message": "Open authorize_url in your browser to continue GitHub login",
+        "authorize_url": authorize_url,
+        "state": state,
+        "callback_hint": (
+            f"{GITHUB_REDIRECT_URI}?code=FROM_REDIRECT&state={state}&format=json"
+        ),
+        "next_steps": [
+            "1. Open authorize_url in a browser and approve the app",
+            "2. Browser login redirects to the React app with ?token= & refresh_token=",
+            "3. For Postman: call callback with format=json and copy access_token",
+            "4. SPA auto-refreshes via POST /auth/refresh before access token expires",
+        ],
+    }
+
+
+def _build_authorize_url() -> tuple[str, str]:
     state = secrets.token_urlsafe(24)
     _pending_states.add(state)
-
     params = {
         "client_id": GITHUB_CLIENT_ID,
         "redirect_uri": GITHUB_REDIRECT_URI,
         "scope": "read:user user:email repo",
         "state": state,
     }
-    return RedirectResponse(f"{GITHUB_AUTHORIZE_URL}?{urlencode(params)}")
+    return f"{GITHUB_AUTHORIZE_URL}?{urlencode(params)}", state
 
 
 @router.get("/github/callback")
@@ -58,10 +93,13 @@ async def github_callback(
     state: str | None = Query(default=None),
     error: str | None = Query(default=None),
     error_description: str | None = Query(default=None),
+    format: str | None = Query(default=None),
 ):
     """
     GitHub redirects here after login.
-    Exchange code → access_token → user → JWT.
+    Exchange code → access_token → user → JWT pair.
+    By default redirects to the React app with ?token=&refresh_token=.
+    Pass format=json for Postman / API clients.
     """
     _require_oauth_config()
 
@@ -110,7 +148,7 @@ async def github_callback(
         user_response.raise_for_status()
         user = user_response.json()
 
-    jwt_token = create_access_token(
+    jwt_access, jwt_refresh = create_token_pair(
         {
             "sub": str(user.get("id")),
             "login": user.get("login"),
@@ -120,9 +158,10 @@ async def github_callback(
         }
     )
 
-    return {
+    payload = {
         "message": "GitHub login successful",
-        "access_token": jwt_token,
+        "access_token": jwt_access,
+        "refresh_token": jwt_refresh,
         "token_type": "bearer",
         "user": {
             "id": user.get("id"),
@@ -132,8 +171,58 @@ async def github_callback(
         },
     }
 
+    if (format or "").lower() == "json":
+        return payload
+
+    redirect = (
+        f"{FRONTEND_URL}/auth/callback?"
+        f"{urlencode({'token': jwt_access, 'refresh_token': jwt_refresh})}"
+    )
+    return RedirectResponse(url=redirect, status_code=302)
+
+
+@router.post("/refresh")
+def refresh_tokens(body: RefreshRequest):
+    """
+    Exchange a valid refresh token for a new access + refresh pair.
+    Called automatically by the SPA before the access token expires.
+    """
+    _require_oauth_config()
+    try:
+        payload = decode_refresh_token(body.refresh_token)
+    except jwt.ExpiredSignatureError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token expired. Login again via GET /auth/github",
+        ) from exc
+    except jwt.InvalidTokenError as exc:
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from exc
+
+    if not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid refresh token payload")
+
+    access, refresh = create_token_pair(
+        {
+            "sub": str(payload.get("sub")),
+            "login": payload.get("login"),
+            "name": payload.get("name"),
+            "avatar_url": payload.get("avatar_url"),
+            "github_token": payload.get("github_token"),
+        }
+    )
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "token_type": "bearer",
+    }
+
 
 @router.get("/me")
 def auth_me(user: dict = Depends(get_current_user)):
-    """Return the current authenticated user."""
-    return user
+    """Return the current authenticated user (no GitHub token)."""
+    return {
+        "id": user.get("id"),
+        "login": user.get("login"),
+        "name": user.get("name"),
+        "avatar_url": user.get("avatar_url"),
+    }
