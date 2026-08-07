@@ -7,8 +7,9 @@ Upload any new file → saved in `storage/` → text extracted → embedded.
 
 ```text
 qa_agnet/
-├── app.py                 # /ask , /documents, /repos, /projects
-├── agents/                # Phase-1 multi-agent router
+    ├── app.py                 # /ask , /documents, /repos, /projects
+    ├── frontend/              # React (Vite) SPA — separate from API
+    ├── agents/                # Phase-1 multi-agent router
 │   ├── router.py          # rules → code | docs | security
 │   ├── prompts.py
 │   ├── base.py            # per-agent retrieval config
@@ -27,10 +28,45 @@ qa_agnet/
 │   ├── chunker.py         # doc/pdf text chunks
 │   ├── store.py           # Pinecone upsert + project metadata
 │   └── service.py
-├── storage/               # ONLY place uploaded files are kept
+├── storage/               # uploaded files + projects catalogs
+├── postman/               # Postman collection for QA
+│   ├── QA_Agent_API.postman_collection.json
+│   └── README.md
 ├── .env
 └── requirements.txt
 ```
+
+## Frontend (React)
+
+Separate SPA in `frontend/` (Vite + React + TypeScript).
+
+```bash
+# terminal 1 — API
+source .venv/bin/activate
+uvicorn app:app --reload
+
+# terminal 2 — UI
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173 → **Continue with GitHub**.
+
+Root `.env` should include:
+
+```env
+FRONTEND_URL=http://localhost:5173
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+After OAuth, the API redirects to `/auth/callback?token=…&refresh_token=…` on the SPA.  
+The SPA stores both tokens and **auto-refreshes** the access token via `POST /auth/refresh`  
+(before expiry, and once on 401). Default access TTL is 60 minutes; refresh lasts 30 days.
+
+Postman can still get JSON by calling the callback with `format=json`.
+
+See `frontend/README.md` for routes and details.
 
 ## Independent upload flow
 
@@ -186,46 +222,20 @@ Postgres / Graph DB are **not** in Phase 1.
 
 ## Postman
 
-Create an environment (e.g. `QA Agent Local`) with:
+Import the ready-made collection:
 
-| Variable | Initial value |
-|---|---|
-| `base_url` | `http://127.0.0.1:8000` |
-| `token` | paste value of `QA_ACCESS_TOKEN` from `.env` |
-
-Then create these requests (Auth → Bearer Token → `{{token}}`):
-
-1. **Me** — `GET {{base_url}}/auth/me`
-2. **Upload** — `POST {{base_url}}/documents`  
-   Body → form-data → key `file` (type File) → choose a `.md` / `.pdf` / etc.
-3. **Ingest repo** — `POST {{base_url}}/repos/ingest`  
-   Body → raw JSON:
-
-```json
-{
-  "owner": "octocat",
-  "repo": "Hello-World",
-  "branch": "master"
-}
+```text
+postman/
+├── QA_Agent_API.postman_collection.json
+└── README.md
 ```
 
-4. **Ask** — `POST {{base_url}}/ask`  
-   Body → raw JSON:
+1. Postman → **Import** → `postman/QA_Agent_API.postman_collection.json`
+2. Collection → **Variables** → set `base_url` if needed  
+3. Run **1. Auth → Start OAuth**, open `authorize_url` in a browser, then paste `access_token` into `token` (or use **Callback** with `oauth_code`)
+3. `base_url` defaults to `http://127.0.0.1:8000`
 
-```json
-{
-  "question": "How do I run and test the Lavni scheduling agent?"
-}
-```
-
-Or with curl:
-
-```bash
-curl -X POST http://127.0.0.1:8000/ask \
-  -H "Authorization: Bearer YOUR_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "your question"}'
-```
+Folders: Health, Auth, Projects, Ingest, Ask (multi-agent).
 
 ## Run
 

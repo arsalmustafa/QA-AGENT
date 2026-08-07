@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 
-from auth.jwt_utils import decode_access_token
+from auth.jwt_utils import TOKEN_TYPE_ACCESS, TOKEN_TYPE_REFRESH, decode_access_token
 
 security = HTTPBearer(auto_error=False)
 
@@ -22,7 +22,7 @@ def get_current_user(
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired. Login again via GET /auth/github",
+            detail="Token expired. Refresh via POST /auth/refresh or login again",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     except jwt.InvalidTokenError as exc:
@@ -31,6 +31,21 @@ def get_current_user(
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
+
+    token_type = payload.get("token_type")
+    # Older tokens without token_type still count as access tokens
+    if token_type == TOKEN_TYPE_REFRESH:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token cannot be used as access token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if token_type is not None and token_type != TOKEN_TYPE_ACCESS:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token type",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if not payload.get("sub"):
         raise HTTPException(

@@ -1,0 +1,443 @@
+{
+  "project": "talootdev09/lavni",
+  "project_name": "lavni",
+  "owner": "talootdev09",
+  "repo": "lavni",
+  "branch": "main",
+  "folders": [
+    ".claude",
+    ".claude/agents",
+    "lavni_scheduler",
+    "lavni_scheduler/agent",
+    "lavni_scheduler/core",
+    "lavni_scheduler/data",
+    "lavni_scheduler/tests",
+    "webapp",
+    "webapp/static",
+    "webapp/tests"
+  ],
+  "files": [
+    {
+      "name": "scheduling-qa.md",
+      "path": ".claude/agents/scheduling-qa.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "ARCHITECTURE.md",
+      "path": "ARCHITECTURE.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "CLAUDE.md",
+      "path": "CLAUDE.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "README.md",
+      "path": "README.md",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "orchestrator.py",
+      "path": "lavni_scheduler/agent/orchestrator.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "ActionResult",
+        "SchedulingAssistant",
+        "__init__",
+        "_check_confirmation_duplicate",
+        "_describe_matches",
+        "_evaluate_and_act",
+        "_raise_ambiguous_or_missing",
+        "_raise_conflict_approval",
+        "_raise_reschedule_cancel_approval",
+        "_raise_scan_finding_approval",
+        "_recommend_action",
+        "_resolve_client_for_conversation",
+        "_resolve_response_datetime",
+        "_resolve_therapist_for_conversation",
+        "handle_admin_command",
+        "handle_admin_response",
+        "scan_conversations"
+      ]
+    },
+    {
+      "name": "cli.py",
+      "path": "lavni_scheduler/cli.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "main",
+        "route_admin_input",
+        "run_line"
+      ]
+    },
+    {
+      "name": "approval.py",
+      "path": "lavni_scheduler/core/approval.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "AdminResponse",
+        "ApprovalManager",
+        "ApprovalRequest",
+        "ApprovalStatus",
+        "__init__",
+        "all",
+        "create",
+        "get",
+        "latest_pending",
+        "parse_admin_response"
+      ]
+    },
+    {
+      "name": "availability.py",
+      "path": "lavni_scheduler/core/availability.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "_to_minutes",
+        "client_appointment_conflict",
+        "is_blocked",
+        "is_within_working_hours",
+        "suggest_alternative_slots",
+        "therapist_appointment_conflict"
+      ]
+    },
+    {
+      "name": "config.py",
+      "path": "lavni_scheduler/core/config.py",
+      "type": "code",
+      "language": "python"
+    },
+    {
+      "name": "conflict.py",
+      "path": "lavni_scheduler/core/conflict.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "Blocker",
+        "SafetyCheck",
+        "add",
+        "check_schedule_safety"
+      ]
+    },
+    {
+      "name": "duplicate.py",
+      "path": "lavni_scheduler/core/duplicate.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "find_any_existing_appointment",
+        "find_duplicate"
+      ]
+    },
+    {
+      "name": "entity_extraction.py",
+      "path": "lavni_scheduler/core/entity_extraction.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "AdminCommandEntities",
+        "ExtractedDateTime",
+        "_next_weekday_on_or_after",
+        "extract_admin_schedule_command",
+        "guess_therapist_mention",
+        "match_clients_by_name",
+        "match_therapists_by_name",
+        "parse_datetime_phrase"
+      ]
+    },
+    {
+      "name": "intent_detection.py",
+      "path": "lavni_scheduler/core/intent_detection.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "Intent",
+        "IntentResult",
+        "_combined_client_text",
+        "detect_intent"
+      ]
+    },
+    {
+      "name": "llm.py",
+      "path": "lavni_scheduler/core/llm.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "classify_with_llm"
+      ]
+    },
+    {
+      "name": "lookup.py",
+      "path": "lavni_scheduler/core/lookup.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "ResolutionResult",
+        "client_is_assigned_to_therapist",
+        "is_ambiguous",
+        "not_found",
+        "resolve_client",
+        "resolve_therapist",
+        "resolved"
+      ]
+    },
+    {
+      "name": "slack.py",
+      "path": "lavni_scheduler/core/slack.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "SlackClient",
+        "SlackMessage",
+        "__init__",
+        "_append_to_log",
+        "_post",
+        "post_approval_request",
+        "post_approval_result",
+        "post_notification",
+        "render"
+      ]
+    },
+    {
+      "name": "store.py",
+      "path": "lavni_scheduler/core/store.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "Store",
+        "__init__",
+        "_compute_next_seq",
+        "_load",
+        "_now_iso",
+        "add_appointment",
+        "all_conversations",
+        "appointments_for_client",
+        "appointments_for_therapist",
+        "blocked_for_therapist",
+        "client_by_id",
+        "client_by_phone",
+        "therapist_by_id"
+      ]
+    },
+    {
+      "name": "appointments.json",
+      "path": "lavni_scheduler/data/appointments.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "blocked_slots.json",
+      "path": "lavni_scheduler/data/blocked_slots.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "clients.json",
+      "path": "lavni_scheduler/data/clients.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "ringcentral_conversations.json",
+      "path": "lavni_scheduler/data/ringcentral_conversations.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "slack_examples.json",
+      "path": "lavni_scheduler/data/slack_examples.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "therapist_client_chats.json",
+      "path": "lavni_scheduler/data/therapist_client_chats.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "therapists.json",
+      "path": "lavni_scheduler/data/therapists.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "twilio_conversations.json",
+      "path": "lavni_scheduler/data/twilio_conversations.json",
+      "type": "code",
+      "language": "json"
+    },
+    {
+      "name": "demo_scenarios.py",
+      "path": "lavni_scheduler/demo_scenarios.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "_section",
+        "run_all_scenarios"
+      ]
+    },
+    {
+      "name": "test_conflict_and_lookup.py",
+      "path": "lavni_scheduler/tests/test_conflict_and_lookup.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "store",
+        "test_resolve_client_ambiguous",
+        "test_resolve_client_not_found",
+        "test_resolve_client_unambiguous",
+        "test_resolve_therapist_ambiguous_by_first_name",
+        "test_resolve_therapist_unambiguous_full_name",
+        "test_safety_detects_blocked_slot",
+        "test_safety_detects_outside_working_hours",
+        "test_safety_detects_therapist_double_booking",
+        "test_safety_detects_unassigned_therapist",
+        "test_safety_flags_duplicate",
+        "test_safety_ok_for_clean_request"
+      ]
+    },
+    {
+      "name": "test_entity_extraction.py",
+      "path": "lavni_scheduler/tests/test_entity_extraction.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "test_extract_admin_schedule_command_multiword_names",
+        "test_extract_admin_schedule_command_no_match",
+        "test_parse_bare_weekday_uses_nearest_upcoming",
+        "test_parse_explicit_month_day",
+        "test_parse_next_weekday",
+        "test_parse_noon_time",
+        "test_parse_vague_phrase_flagged"
+      ]
+    },
+    {
+      "name": "test_intent_detection.py",
+      "path": "lavni_scheduler/tests/test_intent_detection.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "_msgs",
+        "test_cancel_intent",
+        "test_cancel_outranks_reschedule_when_both_present",
+        "test_confirm_intent",
+        "test_empty_messages",
+        "test_no_scheduling_content",
+        "test_reschedule_intent",
+        "test_schedule_intent",
+        "test_vague_message_needs_review"
+      ]
+    },
+    {
+      "name": "test_orchestrator.py",
+      "path": "lavni_scheduler/tests/test_orchestrator.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "assistant",
+        "test_ambiguous_client_and_therapist_raises_approval",
+        "test_approval_reject_does_not_schedule",
+        "test_approval_then_admin_approve_schedules",
+        "test_blocked_slot_raises_approval_not_schedule",
+        "test_clear_schedule_request_schedules_and_notifies",
+        "test_duplicate_request_does_not_create_second_appointment",
+        "test_scan_never_auto_schedules",
+        "test_scan_reschedule_and_cancel_raise_approvals",
+        "test_scan_with_no_matches_reports_none_found",
+        "test_unparseable_admin_command"
+      ]
+    },
+    {
+      "name": "pyproject.toml",
+      "path": "pyproject.toml",
+      "type": "code",
+      "language": "toml"
+    },
+    {
+      "name": "requirements.txt",
+      "path": "requirements.txt",
+      "type": "documentation",
+      "language": "markdown"
+    },
+    {
+      "name": "server.py",
+      "path": "webapp/server.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "ApprovalResponseRequest",
+        "PromptRequest",
+        "_call_and_capture_slack",
+        "_serialize_action_result",
+        "_serialize_approval_request",
+        "_serialize_slack_message",
+        "api_approval_response",
+        "api_pending_approvals",
+        "api_prompt",
+        "api_slacklog"
+      ]
+    },
+    {
+      "name": "app.js",
+      "path": "webapp/static/app.js",
+      "type": "code",
+      "language": "javascript",
+      "symbols": [
+        "addApprovalActions",
+        "addBubble",
+        "addErrorCard",
+        "addFieldsList",
+        "addSlackCard",
+        "el",
+        "lexical_declaration",
+        "refreshPending",
+        "renderActionResult",
+        "sendApprovalResponse",
+        "sendPrompt"
+      ]
+    },
+    {
+      "name": "index.html",
+      "path": "webapp/static/index.html",
+      "type": "code",
+      "language": "html"
+    },
+    {
+      "name": "style.css",
+      "path": "webapp/static/style.css",
+      "type": "code",
+      "language": "css"
+    },
+    {
+      "name": "test_api.py",
+      "path": "webapp/tests/test_api.py",
+      "type": "code",
+      "language": "python",
+      "symbols": [
+        "_approval_response",
+        "_prompt",
+        "client",
+        "test_error_handling_for_empty_prompt",
+        "test_error_handling_for_unknown_approval_id",
+        "test_scenario1_clear_request_schedules_and_notifies",
+        "test_scenario2_approval_reject_does_not_schedule",
+        "test_scenario2_approval_then_approve_schedules",
+        "test_scenario2_blocked_slot_raises_approval_not_schedule",
+        "test_scenario3_ambiguous_client_and_therapist_raises_approval",
+        "test_scenario4_duplicate_request_creates_no_second_appointment",
+        "test_scenario5_scan_never_auto_schedules_and_flags_reschedule_cancel",
+        "test_scenario6_daily_scan_returns_structured_findings",
+        "test_scenario6_rescan_does_not_duplicate_slack_approvals"
+      ]
+    }
+  ]
+}

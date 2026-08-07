@@ -1,7 +1,9 @@
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from agents import run_ask
+from auth.config import CORS_ORIGINS
 from auth.deps import get_current_user
 from auth.router import router as auth_router
 from github_repos import fetch_and_ingest_repo
@@ -10,6 +12,13 @@ from ingestion.service import upload_and_process
 from project_catalog import list_catalogs, load_catalog
 
 app = FastAPI(title="QA Agent API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS or ["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(auth_router)
 
 
@@ -70,6 +79,8 @@ def root():
         "message": "Welcome to QA Agent API",
         "auth": {
             "login": "GET /auth/github",
+            "start": "GET /auth/github/start  (Postman JSON)",
+            "callback": "GET /auth/github/callback",
             "me": "GET /auth/me",
         },
         "repos": {

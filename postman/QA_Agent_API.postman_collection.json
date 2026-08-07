@@ -1,0 +1,518 @@
+{
+  "info": {
+    "_postman_id": "qa-agent-api-collection",
+    "name": "QA Agent API",
+    "description": "QA Agent — auth, projects, ingest, multi-agent ask, documents.\n\n## Auth (Postman)\n1. Set `base_url` (default http://127.0.0.1:8000).\n2. Run **1. Auth → Start OAuth** — copies `oauth_state` + `authorize_url`.\n3. Open `authorize_url` from the response in a browser and approve GitHub.\n4a. Easiest: copy `access_token` from the browser JSON into collection variable `token`.\n4b. Or set `oauth_code` from the redirect URL, then run **Callback** (auto-saves `token`).\n5. Run **Me** to verify.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "oauth_code",
+      "value": ""
+    },
+    {
+      "key": "oauth_state",
+      "value": ""
+    },
+    {
+      "key": "authorize_url",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "0. Health",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Root",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Start OAuth",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.state) pm.collectionVariables.set('oauth_state', j.state);",
+                  "  if (j.authorize_url) pm.collectionVariables.set('authorize_url', j.authorize_url);",
+                  "  console.log('Open authorize_url in browser:');",
+                  "  console.log(j.authorize_url);",
+                  "  pm.test('OAuth start ok', function () {",
+                  "    pm.expect(j.authorize_url).to.be.a('string');",
+                  "    pm.expect(j.state).to.be.a('string');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/github/start",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "github", "start"]
+            },
+            "description": "Returns authorize_url + state (no redirect). Auto-saves oauth_state and authorize_url. Open authorize_url in a browser next."
+          }
+        },
+        {
+          "name": "Login redirect (browser)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/github",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "github"]
+            },
+            "description": "302 redirect to GitHub. Prefer **Start OAuth** for Postman, or open this URL in a browser."
+          }
+        },
+        {
+          "name": "Callback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const j = pm.response.json();",
+                  "  if (j.access_token) {",
+                  "    pm.collectionVariables.set('token', j.access_token);",
+                  "    console.log('token saved to collection variable');",
+                  "  }",
+                  "  pm.test('Login callback ok', function () {",
+                  "    pm.expect(j.access_token).to.be.a('string');",
+                  "    pm.expect(j.user).to.be.an('object');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/github/callback?code={{oauth_code}}&state={{oauth_state}}",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "github", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "{{oauth_code}}"
+                },
+                {
+                  "key": "state",
+                  "value": "{{oauth_state}}"
+                }
+              ]
+            },
+            "description": "Exchange GitHub code for JWT.\n\n1. Run Start OAuth first.\n2. Open authorize_url in browser and approve.\n3. From the redirect URL, copy the `code` query param into collection variable `oauth_code` (state is already set).\n4. Send this request — Tests script saves `access_token` into `token`.\n\nNote: GitHub `code` is single-use. If the browser already loaded the callback successfully, copy `access_token` from the browser JSON into `token` instead."
+          }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Authenticated', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.login).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Verify Bearer {{token}} works."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Projects",
+      "item": [
+        {
+          "name": "List projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects",
+              "host": ["{{base_url}}"],
+              "path": ["projects"]
+            }
+          }
+        },
+        {
+          "name": "Get project lavni",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/talootdev09/lavni",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "talootdev09", "lavni"]
+            }
+          }
+        },
+        {
+          "name": "Get project scheduling_agent",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/afaafaurangzaib/scheduling_agent",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "afaafaurangzaib", "scheduling_agent"]
+            }
+          }
+        },
+        {
+          "name": "Get missing project (expect 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/projects/nobody/does-not-exist",
+              "host": ["{{base_url}}"],
+              "path": ["projects", "nobody", "does-not-exist"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Ingest",
+      "item": [
+        {
+          "name": "Ingest lavni",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"talootdev09\",\n  \"repo\": \"lavni\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/repos/ingest",
+              "host": ["{{base_url}}"],
+              "path": ["repos", "ingest"]
+            }
+          }
+        },
+        {
+          "name": "Ingest scheduling_agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"owner\": \"afaafaurangzaib\",\n  \"repo\": \"scheduling_agent\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/repos/ingest",
+              "host": ["{{base_url}}"],
+              "path": ["repos", "ingest"]
+            }
+          }
+        },
+        {
+          "name": "Upload document",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": [],
+                  "description": "Choose a .md / .pdf / .txt file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/documents",
+              "host": ["{{base_url}}"],
+              "path": ["documents"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Ask",
+      "item": [
+        {
+          "name": "Ask code (auto)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"How does the scheduling orchestrator work?\",\n  \"project\": \"talootdev09/lavni\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask docs (auto)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"How do I run and install this project according to the README?\",\n  \"project\": \"talootdev09/lavni\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask security (auto)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Are there auth or JWT security issues in this codebase?\",\n  \"project\": \"talootdev09/lavni\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask force code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Explain the main module\",\n  \"project\": \"talootdev09/lavni\",\n  \"agent\": \"code\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask force docs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is this project about?\",\n  \"project\": \"talootdev09/lavni\",\n  \"agent\": \"docs\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask force security",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Review authentication and secrets handling\",\n  \"project\": \"talootdev09/lavni\",\n  \"agent\": \"security\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask scheduling_agent code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"How does scheduling work?\",\n  \"project\": \"afaafaurangzaib/scheduling_agent\",\n  \"agent\": \"code\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask global (no project)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is this QA agent API?\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        },
+        {
+          "name": "Ask without token (expect 401)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"test\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/ask",
+              "host": ["{{base_url}}"],
+              "path": ["ask"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
